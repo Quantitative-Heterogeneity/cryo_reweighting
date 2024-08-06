@@ -1,6 +1,6 @@
 import torch
-from cre_reg.negative_log_likelihood import evaluate_nll
-from cre_reg.utils import normalize_weights
+from cryo_reweighting.torch.negative_log_likelihood import evaluate_nll
+from cryo_reweighting.torch.utils import normalize_weights
 
 from typing import Callable, Optional
 import torch.optim as optim

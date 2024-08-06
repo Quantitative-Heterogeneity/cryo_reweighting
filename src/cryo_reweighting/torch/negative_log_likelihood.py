@@ -1,6 +1,6 @@
 import torch
 from typing import Optional
-from cre_reg.utils import normalize_weights
+from cryo_reweighting.torch.utils import normalize_weights
 
 
 def evaluate_nll(
