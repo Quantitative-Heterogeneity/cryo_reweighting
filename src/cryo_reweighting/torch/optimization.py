@@ -24,7 +24,7 @@ def gradient_descent_weights(
     log_weights.requires_grad = True
 
     if loss_fxn is None:
-        loss_fxn = evaluate_nll
+        loss_fxn = lambda x: evaluate_nll(x, log_Pij)
 
     if regularization_fxn is None:
         regularization_fxn = lambda x: 0
