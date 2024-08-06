@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+authors = [
+   { name = "Erik Thiede", email = "ehthiede@gmail.com"},
+   { name = "Luke Evans", email = "levans@flatironinstitute.org"},
+   { name = "Lars Dingeldein", email = "dingeldein@fias.uni-frankfurt.de"},
+   { name = "Kwanghwi Je", email = "kj355@cornell.edu"},
+]
+name = "cryo_reweighting"
+version = "0.0.1"
+dependencies = [
+    "numpy",
+]
