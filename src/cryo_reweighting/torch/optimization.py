@@ -13,7 +13,7 @@ def gradient_descent_weights(
     log_weights_init: Optional[torch.Tensor] = None,
     cluster_sizes: Optional[torch.Tensor] = None,
     regularization_fxn: Optional[Callable] = None,
-    num_epochs: Optional[int] = 1000,
+    num_iterations: Optional[int] = 1000,
 ):
     # Initialize
     if log_weights_init is None:
@@ -40,7 +40,7 @@ def gradient_descent_weights(
 
     losses = []
 
-    for i in tqdm(range(num_epochs)):
+    for i in tqdm(range(num_iterations)):
         optimizer.zero_grad()
 
         log_scaled_weights = log_weights + log_cluster_sizes
@@ -71,11 +71,19 @@ def expectation_maximization_weights(
          \alpha_m^{(\text{new})} = \frac{1}{N}\sum_{i=1}^N \frac{\alpha_m p(y_i|x_m)}{\sum_{m'}\alpha_{m'} p(y_i|x_{m'})}
     This is implemented with logarithms of the above equation, for stability.
     """
+    if log_weights_init is None:
+        log_weights = torch.randn_like(log_Pij[0]) * 0.01
+    else:
+        log_weights = torch.clone(log_weights_init)
+
     if cluster_sizes is None:
-        cluster_sizes = torch.ones_like(log_weights_init)
+        cluster_sizes = torch.ones_like(log_weights)
+
+    loss_fxn = lambda x: evaluate_nll(x, log_Pij)
+
     log_cluster_sizes = torch.log(cluster_sizes)
 
-    log_scaled_weights = log_weights_init + log_cluster_sizes
+    log_scaled_weights = log_weights + log_cluster_sizes
     scaled_weights = normalize_weights(log_scaled_weights)
     log_scaled_weights = torch.log(scaled_weights)
 
