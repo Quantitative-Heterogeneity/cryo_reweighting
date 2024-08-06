@@ -93,5 +93,5 @@ def expectation_maximization_weights(
         losses.append(loss.item())
 
     # Get back weights without cluster sizes
-    log_weights = normalize_weights(log_scaled_weights - log_cluster_sizes)
+    log_weights = torch.log(normalize_weights(log_scaled_weights - log_cluster_sizes))
     return log_weights, torch.tensor(losses)
