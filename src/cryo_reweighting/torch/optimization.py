@@ -57,7 +57,9 @@ def gradient_descent_weights(
 
 def expectation_maximization_weights(
     log_Pij: torch.Tensor,
+    loss_fxn: Optional[Callable] = None,
     log_weights_init: Optional[torch.Tensor] = None,
+    cluster_sizes: Optional[torch.Tensor] = None,
     num_iterations: Optional[int] = 1000,
 ):
     """
@@ -69,26 +71,27 @@ def expectation_maximization_weights(
          \alpha_m^{(\text{new})} = \frac{1}{N}\sum_{i=1}^N \frac{\alpha_m p(y_i|x_m)}{\sum_{m'}\alpha_{m'} p(y_i|x_{m'})}
     This is implemented with logarithms of the above equation, for stability.
     """
-    weights = normalize_weights(log_weights_init)
-    log_weights = torch.log(weights)
+    if cluster_sizes is None:
+        cluster_sizes = torch.ones_like(log_weights_init)
+    log_cluster_sizes = torch.log(cluster_sizes)
 
-    loss = []
+    log_scaled_weights = log_weights_init + log_cluster_sizes
+    scaled_weights = normalize_weights(log_scaled_weights)
+    log_scaled_weights = torch.log(scaled_weights)
+
+    losses = []
     for k in range(num_iterations):
-        log_likelihood_per_image = torch.logsumexp(log_Pij + log_weights, axis=1)
-        log_weighted_likelihoods = log_Pij + log_weights
+        log_likelihood_per_image = torch.logsumexp(log_Pij + log_scaled_weights, axis=1)
+        log_weighted_likelihoods = log_Pij + log_scaled_weights
         log_posteriors = log_weighted_likelihoods - log_likelihood_per_image.reshape(
             log_likelihood_per_image.shape[0], 1
         )
-        log_weights = torch.logsumexp(log_posteriors, axis=0)
-
-        # Normalize weights to sum to 1
-        weights = normalize_weights(log_weights)
-        log_weights = torch.log(weights)
+        log_scaled_weights = torch.logsumexp(log_posteriors, axis=0)
 
         # Compute loss
-        loss.append(
-            torch.sum(torch.exp(log_posteriors) * (log_weights + log_Pij), dim=None)
-        )
+        loss = loss_fxn(log_scaled_weights)
+        losses.append(loss.item())
 
-    loss = torch.tensor(loss)
-    return log_weights, loss
+    # Get back weights without cluster sizes
+    log_weights = normalize_weights(log_scaled_weights - log_cluster_sizes)
+    return log_weights, torch.tensor(losses)
