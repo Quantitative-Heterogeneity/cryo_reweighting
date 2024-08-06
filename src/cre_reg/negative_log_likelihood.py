@@ -28,7 +28,7 @@ def evaluate_nll(
 
     """
     # Normalize the log weights
-    weighted_alphas = normalize_weights(-1 * log_weights)
+    weighted_alphas = normalize_weights(log_weights)
     log_weighted_alphas = torch.log(weighted_alphas)
 
     # Evaluate the log-likelihood

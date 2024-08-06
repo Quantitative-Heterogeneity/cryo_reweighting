@@ -7,7 +7,7 @@ import torch.optim as optim
 from tqdm import tqdm
 
 
-def optimize_weights(
+def gradient_descent_weights(
     log_Pij: torch.Tensor,
     loss_fxn: Optional[Callable] = None,
     log_weights_init: Optional[torch.Tensor] = None,
@@ -69,7 +69,7 @@ def expectation_maximization_weights(
          \alpha_m^{(\text{new})} = \frac{1}{N}\sum_{i=1}^N \frac{\alpha_m p(y_i|x_m)}{\sum_{m'}\alpha_{m'} p(y_i|x_{m'})}
     This is implemented with logarithms of the above equation, for stability.
     """
-    weights = normalize_weights(-1 * log_weights_init)
+    weights = normalize_weights(log_weights_init)
     log_weights = torch.log(weights)
 
     loss = []
@@ -82,7 +82,7 @@ def expectation_maximization_weights(
         log_weights = torch.logsumexp(log_posteriors, axis=0)
 
         # Normalize weights to sum to 1
-        weights = normalize_weights(-1 * log_weights)
+        weights = normalize_weights(log_weights)
         log_weights = torch.log(weights)
 
         # Compute loss
