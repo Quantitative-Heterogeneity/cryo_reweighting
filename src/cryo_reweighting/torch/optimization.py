@@ -7,55 +7,6 @@ from typing import Callable, Optional
 import torch.optim as optim
 from tqdm import tqdm
 
-
-def gradient_descent_weights(
-    log_Pij: torch.Tensor,
-    loss_fxn: Optional[Callable] = None,
-    log_weights_init: Optional[torch.Tensor] = None,
-    cluster_sizes: Optional[torch.Tensor] = None,
-    regularization_fxn: Optional[Callable] = None,
-    num_iterations: Optional[int] = 1000,
-):
-    # Initialize
-    if log_weights_init is None:
-        log_weights = torch.randn_like(log_Pij[0]) * 0.01
-    else:
-        log_weights = torch.clone(log_weights_init)
-
-    log_weights.requires_grad = True
-
-    if loss_fxn is None:
-        loss_fxn = lambda x: evaluate_nll(x, log_Pij)
-
-    if regularization_fxn is None:
-        regularization_fxn = lambda x: 0
-
-    if cluster_sizes is None:
-        cluster_sizes = torch.ones_like(log_weights)
-    log_cluster_sizes = torch.log(cluster_sizes)
-
-    # Mak
-
-    # Optimization Loop
-    optimizer = optim.Adam([log_weights], lr=0.1)
-
-    losses = []
-
-    for i in tqdm(range(num_iterations)):
-        optimizer.zero_grad()
-
-        log_scaled_weights = log_weights + log_cluster_sizes
-
-        loss = loss_fxn(log_scaled_weights)
-        total_loss = loss + regularization_fxn(log_weights)
-        total_loss.backward()
-        losses.append(total_loss.item())
-
-        optimizer.step()
-
-    return log_weights, torch.tensor(losses)
-
-
 def expectation_maximization_weights(
     log_Pij: torch.Tensor,
     log_weights_init: Optional[torch.Tensor] = None,
@@ -145,5 +96,53 @@ def expectation_maximization_weights_from_clustering(
 
     # Get back weights without cluster sizes
     log_weights = torch.log(normalize_weights(log_scaled_weights - log_cluster_sizes))
+    return log_weights, torch.tensor(losses)
+
+
+def gradient_descent_weights(
+    log_Pij: torch.Tensor,
+    loss_fxn: Optional[Callable] = None,
+    log_weights_init: Optional[torch.Tensor] = None,
+    cluster_sizes: Optional[torch.Tensor] = None,
+    regularization_fxn: Optional[Callable] = None,
+    num_iterations: Optional[int] = 1000,
+):
+    # Initialize
+    if log_weights_init is None:
+        log_weights = torch.randn_like(log_Pij[0]) * 0.01
+    else:
+        log_weights = torch.clone(log_weights_init)
+
+    log_weights.requires_grad = True
+
+    if loss_fxn is None:
+        loss_fxn = lambda x: evaluate_nll(x, log_Pij)
+
+    if regularization_fxn is None:
+        regularization_fxn = lambda x: 0
+
+    if cluster_sizes is None:
+        cluster_sizes = torch.ones_like(log_weights)
+    log_cluster_sizes = torch.log(cluster_sizes)
+
+    # Mak
+
+    # Optimization Loop
+    optimizer = optim.Adam([log_weights], lr=0.1)
+
+    losses = []
+
+    for i in tqdm(range(num_iterations)):
+        optimizer.zero_grad()
+
+        log_scaled_weights = log_weights + log_cluster_sizes
+
+        loss = loss_fxn(log_scaled_weights)
+        total_loss = loss + regularization_fxn(log_weights)
+        total_loss.backward()
+        losses.append(total_loss.item())
+
+        optimizer.step()
+
     return log_weights, torch.tensor(losses)
 
