@@ -7,6 +7,7 @@ from typing import Callable, Optional
 import torch.optim as optim
 from tqdm import tqdm
 
+# TODO: move these two functions into some other folder
 # From Robert Gower, slightly modified
 def fw_gap(weights, grad):
       """The Frank-Wolfe gap an upper bound on the optimality gap.
