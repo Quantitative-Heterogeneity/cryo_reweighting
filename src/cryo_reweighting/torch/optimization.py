@@ -106,6 +106,7 @@ def multiplicative_gradient(
     stats_tracking = {}
     stats_tracking["losses"] = []
     stats_tracking["entropies"] = []
+    stats_tracking["idx"] = []
 
     # Iterate
     for k in range(max_iterations):
@@ -122,6 +123,7 @@ def multiplicative_gradient(
             entropy = -torch.sum(weights*log_weights)
             stats_tracking["losses"].append(loss)
             stats_tracking["entropies"].append(entropy)
+            stats_tracking["idx"].append(k)
             print(f"#iterations: {k}")
             print(f"loss: {loss}")
             print(f"frank-wolfe gap: {gap}")
