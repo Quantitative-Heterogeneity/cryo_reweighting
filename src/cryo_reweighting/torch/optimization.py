@@ -7,6 +7,143 @@ from typing import Callable, Optional
 import torch.optim as optim
 from tqdm import tqdm
 
+# From Robert Gower, slightly modified
+def fw_gap(weights, grad):
+      """The Frank-Wolfe gap an upper bound on the optimality gap.
+
+      the loss f (negative of the objective) is convex,
+          f(y) >= f(x) + <f'(x), y - x>
+      We can thus bound the optimality gap by
+          f(x) - f(x*) <= - min_y <f'(x), y - x> : y in simplex
+      and the RHS is minimized
+      """
+      # For a convex f, would be
+      # -(np.min(grad) - np.inner(grad, param))
+      # In our case, grad is the negative of the gradient, so
+      # -(np.min(-grad) - np.inner(-grad, param))
+      # simplifies to
+      # np.max(grad) - np.inner(grad, param)
+      # BUT, for ourproblem, np.inner(grad, param) is always 1
+      return torch.max(grad) - 1
+
+def grad_log_prob(
+    weights: torch.Tensor,
+    log_likelihood: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Evaluate the gradient of the log-likelihood of the data given the weights.
+
+    Parameters
+    ----------
+    weights: torch.Tensor
+        weights of the clusters.
+    log_likelihood: torch.Tensor
+        Log-likelihood of generating image i from cluster j.
+
+    Returns
+    -------
+    grad: torch.Tensor
+
+    """
+    num_images, num_structures = log_likelihood.shape
+
+    log_weights = torch.log(weights)
+    log_density_at_weights = torch.logsumexp(log_likelihood + log_weights, axis=1)
+
+    aux = log_likelihood - log_density_at_weights.reshape(num_images, 1)
+    grad =  (1/num_images)*(torch.exp(torch.logsumexp(aux, axis=0)))
+    return grad
+
+
+def multiplicative_gradient(
+    log_likelihood,
+    tol: Optional[float]=10**-4,
+    max_iterations: Optional[int]=20000,
+    stats_frequency: Optional[int]=100
+)->float:
+    
+    """
+     This function updates the weights according to the expectation maximization
+     algorithm for mixture models.
+     This is also known as the "multiplicative gradient" method, which has much less notation overload with "EM"!
+     
+     For $N$ images and $M$ structures, this updates a given weight m according to
+     .. math::
+         \alpha_m^{(\text{new})} = \frac{1}{N}\sum_{i=1}^N \frac{\alpha_m p(y_i|x_m)}{\sum_{m'}\alpha_{m'} p(y_i|x_{m'})}
+
+    This actually simplifies to, literally multiplying the old guess by the gradient of the log likelihood
+     .. math::
+         \alpha_m^{(\text{new})} = \alpha_m \nabla L(\alpha)_m,
+    where the L(\alpha) is the log likelihood at the old weights
+
+    This is implemented with logarithms of the above equation, for stability.
+
+    By default, the initial weights are set to equal probabilities for all structures, the `most entropic' weights.
+ 
+    Parameters
+    ----------
+    log_likelihood: torch.Tensor
+        Log-likelihood of generating image i from cluster j.
+    tol: float
+        Tolerance for the stopping criteria
+    max_iterations: int
+        Max iterations if stopping criteria isn't met
+    stats_frequency: int:
+        Stats are computed at every (stats frequency) iterations
+    
+    Returns
+    -------
+    weights: torch.tensor 
+    stats_tracking: dictionary
+    """
+    num_images, num_structures = log_likelihood.shape
+
+    # Initialize Weights
+    weights = (1/num_structures)*torch.ones(num_structures)
+    
+    stats_tracking = {}
+    stats_tracking["losses"] = []
+    stats_tracking["entropies"] = []
+
+    # Iterate
+    for k in range(max_iterations):
+
+        # Update weights
+        grad = grad_log_prob(weights, log_likelihood)   
+        weights = weights*grad
+
+        # Update loss and stats
+        log_weights = torch.log(weights)
+        loss = -torch.mean(torch.logsumexp(log_likelihood + log_weights, axis=1))
+        entropy = -torch.sum(weights*log_weights)
+        
+        stats_tracking["losses"].append(loss)
+        stats_tracking["entropies"].append(entropy)
+        
+        # Check stopping criterion
+        gap = fw_gap(weights,grad)
+        if k % stats_frequency == 0: 
+            loss = -torch.mean(torch.logsumexp(log_likelihood + log_weights, axis=1))
+            entropy = -torch.sum(weights*log_weights)
+            stats_tracking["losses"].append(loss)
+            stats_tracking["entropies"].append(entropy)
+            print(f"#iterations: {k}")
+            print(f"loss: {loss}")
+            print(f"frank-wolfe gap: {gap}")
+            print(f"entropy: {entropy}")
+            print("\n")
+        
+        if gap < tol:
+            print("exiting!")
+            print(f"#iterations at exit: {k}")
+            break
+
+    log_weights = torch.log(weights)
+    log_weights = torch.log(normalize_weights(log_weights))
+    return log_weights, stats_tracking
+
+# NOTE: will be `depreciated` probably
+# NOTE: this function computes the same as multiplicative_gradient, just written differently and with different stats tracked
 def expectation_maximization_weights(
     log_Pij: torch.Tensor,
     log_weights_init: Optional[torch.Tensor] = None,
@@ -52,7 +189,6 @@ def expectation_maximization_weights(
 
     log_weights = torch.log(normalize_weights(log_weights))
     return log_weights, torch.tensor(losses)
-
 
 def expectation_maximization_weights_from_clustering(
     log_Pij: torch.Tensor,
