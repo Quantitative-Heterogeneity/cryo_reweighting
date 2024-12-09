@@ -26,6 +26,7 @@ def fw_gap(weights, grad):
       # BUT, for ourproblem, np.inner(grad, param) is always 1
       return torch.max(grad) - 1
 
+
 def grad_log_prob(
     weights: torch.Tensor,
     log_likelihood: torch.Tensor,
@@ -141,6 +142,7 @@ def multiplicative_gradient(
     log_weights = torch.log(weights)
     log_weights = torch.log(normalize_weights(log_weights))
     return log_weights, stats_tracking
+
 
 # NOTE: will be `depreciated` probably
 # NOTE: this function computes the same as multiplicative_gradient, just written differently and with different stats tracked
