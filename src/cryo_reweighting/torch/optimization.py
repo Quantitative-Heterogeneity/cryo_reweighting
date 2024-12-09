@@ -113,17 +113,10 @@ def multiplicative_gradient(
         grad = grad_log_prob(weights, log_likelihood)   
         weights = weights*grad
 
-        # Update loss and stats
-        log_weights = torch.log(weights)
-        loss = -torch.mean(torch.logsumexp(log_likelihood + log_weights, axis=1))
-        entropy = -torch.sum(weights*log_weights)
-        
-        stats_tracking["losses"].append(loss)
-        stats_tracking["entropies"].append(entropy)
-        
         # Check stopping criterion
         gap = fw_gap(weights,grad)
         if k % stats_frequency == 0: 
+            log_weights = torch.log(weights)
             loss = -torch.mean(torch.logsumexp(log_likelihood + log_weights, axis=1))
             entropy = -torch.sum(weights*log_weights)
             stats_tracking["losses"].append(loss)
