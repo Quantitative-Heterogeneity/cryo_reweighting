@@ -8,16 +8,6 @@ import scipy
 
 from typing import Optional
 
-
-def normalize_weights(log_weights: ArrayLike) -> Array:
-    """
-    Gets the input vector log weights to sum to 1 when exponentionated, and returns exponentiated vector
-    """
-    weighted_alphas = jnp.exp(log_weights - jnp.max(log_weights))
-    weighted_alphas = weighted_alphas / jnp.sum(weighted_alphas)
-    return weighted_alphas
-
-
 @jax.jit
 def grad_log_prob(weights: ArrayLike, likelihood: ArrayLike) -> Array:
     """
