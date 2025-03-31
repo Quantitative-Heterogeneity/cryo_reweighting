@@ -1,15 +1,15 @@
 import jax
 import jax.numpy as jnp
-from cryo_reweighting.torch.utils import normalize_weights
 from jax import Array
 from jax.typing import ArrayLike
 import jax
 import scipy
 
-from typing import Optional
+from typing import Optional, Union
+
 
 @jax.jit
-def grad_log_prob(weights: ArrayLike, likelihood: ArrayLike) -> Array:
+def grad_log_prob(weights: ArrayLike,  counts: ArrayLike, likelihood: ArrayLike) -> Array:
     """
     Evaluate the gradient of the log-likelihood of the data given the weights.
 
@@ -33,7 +33,8 @@ def grad_log_prob(weights: ArrayLike, likelihood: ArrayLike) -> Array:
     #assert jnp.amax(likelihood, axis=0) == jnp.zeros(likelihood.shape[0]), "need rows normalized to have max value 0!" 
     
     model = jnp.sum(likelihood*weights, axis=1)
-    grad = jnp.mean(likelihood/model[:, jnp.newaxis], axis=0) 
+    #grad = jnp.mean((likelihood*counts[:, jnp.newaxis])/model[:, jnp.newaxis], axis=0) 
+    grad = jnp.sum((likelihood*counts[:, jnp.newaxis])/model[:, jnp.newaxis], axis=0) 
     return grad
 
 
@@ -54,9 +55,11 @@ def multiplicative_gradient(
     log_likelihood: ArrayLike,
     tol: Optional[float] = 1e-8,
     max_iterations: Optional[float] = 100000,
-    verbose: Optional[bool]=False
+    verbose: Optional[bool]=False,
+    counts: Optional[Union[ArrayLike, None]]=None
 ):
     """
+    TODO: change docs for counts
     This function updates the weights according to the expectation maximization
     algorithm for mixture models.
     This is also known as the "multiplicative gradient" method, which has much less notation overload with "EM"!
@@ -97,11 +100,13 @@ def multiplicative_gradient(
     
     # NOTE: we cannot exponentiate this if previous step hasn't happened 
     likelihood = jnp.exp(log_likelihood)
-    
+
+    if counts is None:
+        counts = jnp.ones(num_images)
     for k in range(max_iterations):
 
         # Update weights
-        grad = grad_log_prob(weights, likelihood)   
+        grad = grad_log_prob(weights, counts, likelihood)   
         weights = update_weights(weights, grad)
 
         # Check stopping criterion: this `gap` is an upper bound on our loss compared to optimal weights
