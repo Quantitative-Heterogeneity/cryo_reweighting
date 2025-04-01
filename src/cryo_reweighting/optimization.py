@@ -47,9 +47,9 @@ def update_weights(weights: ArrayLike, grad: ArrayLike) -> Array:
 @jax.jit
 def update_stats(likelihood: ArrayLike, weights: ArrayLike):
     #TODO: other stats will go in here
-    loss = -jnp.mean(jnp.log(likelihood*weights), axis=1) 
+    model = jnp.sum(likelihood*weights, axis=1)
+    loss = -jnp.mean(jnp.log(model)) 
     return loss
-
 
 def multiplicative_gradient(
     log_likelihood: ArrayLike,
@@ -102,12 +102,27 @@ def multiplicative_gradient(
     likelihood = jnp.exp(log_likelihood)
 
     if counts is None:
-        counts = jnp.ones(num_images)
+        counts = (1/num_images)*jnp.ones(num_images)
+
+    info = {}
+    info["losses"] = []
+    info["weights"] = []
+    info["weights_idx"] = []
+
     for k in range(max_iterations):
 
         # Update weights
         grad = grad_log_prob(weights, counts, likelihood)   
         weights = update_weights(weights, grad)
+
+        # Update info on optimizatoin
+        if k % 100 == 0:
+            print("NO COUNTS IN LOSS YET")
+            loss = update_stats(likelihood, weights)
+            print(loss)
+            info["losses"].append(loss)
+            info["weights"].append(weights)
+            info["weights_idx"].append(k)
 
         # Check stopping criterion: this `gap` is an upper bound on our loss compared to optimal weights
         gap = jnp.max(grad) - 1
@@ -120,7 +135,11 @@ def multiplicative_gradient(
             print("exiting!")
             break
 
-    return weights
+    info["weights"] = jnp.stack(info["weights"])
+    info["losses"] = jnp.stack(info["losses"])
+    info["weights_idx"] = jnp.array(info["weights_idx"])
+
+    return weights, info
 
 
 @jax.jit
@@ -149,6 +168,11 @@ def grad_log_prob_in_log_space(weights,log_likelihood):
     grad =  (1/num_images)*(jnp.exp(jax.scipy.special.logsumexp(aux, axis=0)))
     return grad
 
+@jax.jit
+def update_stats_in_log_space(weights, log_likelihood):
+    #TODO: other stats will go in here
+    loss = -jnp.mean(jax.scipy.special.logsumexp(a=log_likelihood, b=weights, axis=1))
+    return loss
 
 def multiplicative_gradient_in_log_space(
     log_likelihood,
@@ -165,11 +189,26 @@ def multiplicative_gradient_in_log_space(
     # Initialize Weights
     weights = (1/num_structures)*jnp.ones(num_structures)
 
+
+    info = {}
+    info["losses"] = []
+    info["weights"] = []
+    info["weights_idx"] = []
+
     for k in range(max_iterations):
 
         # Update weights
         grad = grad_log_prob_in_log_space(weights, log_likelihood)   
         weights = update_weights(weights, grad)
+
+        # Update info on optimizatoin
+        if k % 100 == 0:
+            print("NO COUNTS IN LOSS YET")
+            loss = update_stats_in_log_space(weights, log_likelihood)
+            print(loss)
+            info["losses"].append(loss)
+            info["weights"].append(weights)
+            info["weights_idx"].append(k)
 
         # Check stopping criterion: this `gap` is an upper bound on our loss compared to optimal weights
         gap = jnp.max(grad) - 1
@@ -182,4 +221,8 @@ def multiplicative_gradient_in_log_space(
             print("exiting!")
             break
 
-    return weights
+    info["weights"] = jnp.stack(info["weights"])
+    info["losses"] = jnp.stack(info["losses"])
+    info["weights_idx"] = jnp.array(info["weights_idx"])
+
+    return weights, info
