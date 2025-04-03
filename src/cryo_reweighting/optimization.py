@@ -203,11 +203,11 @@ def multiplicative_gradient_in_log_space(
 
         # Update info on optimizatoin
         if k % 100 == 0:
-            print("NO COUNTS IN LOSS YET")
             loss = update_stats_in_log_space(weights, log_likelihood)
-            print(loss)
             info["losses"].append(loss)
+            print("NO COUNTS IN LOSS YET")
             info["weights"].append(weights)
+            print(loss)
             info["weights_idx"].append(k)
 
         # Check stopping criterion: this `gap` is an upper bound on our loss compared to optimal weights
