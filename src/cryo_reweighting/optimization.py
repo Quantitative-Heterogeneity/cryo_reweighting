@@ -11,17 +11,19 @@ from typing import Optional, Union
 @jax.jit
 def grad_log_prob(weights: ArrayLike,  counts: ArrayLike, likelihood: ArrayLike) -> Array:
     """
-    Evaluate the gradient of the log-likelihood of the data given the weights.
+    Evaluate the gradient of the log-likelihood of the data given the weights, and counts per image.
 
-    This computes the "probabilistic model" for the image prob density with weights w
-    - \sum_m p(y_i |x_m) w_m  
-    And then computes the gradient of \sum_i (1/num_images)*log (\sum_m p(y_i|x_m) w_m)
-    - (1/num_images)*p(y_i|x_m) / \sum_m p(y_i | x_m) w_m
+    This computes the "probabilistic model" for the image prob density with weights w, counts c
+    - (\sum_m p(y_i |x_m) w_m)^c_i
+    And then computes the gradient of \sum_i log (\sum_m p(y_i|x_m) w_m)^c_i
+    - \sum_i c_i*p(y_i|x_m) / \sum_m p(y_i | x_m) w_m
 
     Parameters
     ----------
     weights: jax.Array
         weights of the structures.
+    counts: jax.Array
+        counts of the images.
     likelihood: jax.Array
         (unnormalized)_likelihood of generating image i from cluster j.
         must be of shape (num_images x num_structures) 
@@ -30,10 +32,7 @@ def grad_log_prob(weights: ArrayLike,  counts: ArrayLike, likelihood: ArrayLike)
     -------
     gradient of log marginal likelihood: jax.Array
     """
-    #assert jnp.amax(likelihood, axis=0) == jnp.zeros(likelihood.shape[0]), "need rows normalized to have max value 0!" 
-    
     model = jnp.sum(likelihood*weights, axis=1)
-    #grad = jnp.mean((likelihood*counts[:, jnp.newaxis])/model[:, jnp.newaxis], axis=0) 
     grad = jnp.sum((likelihood*counts[:, jnp.newaxis])/model[:, jnp.newaxis], axis=0) 
     return grad
 
@@ -45,10 +44,10 @@ def update_weights(weights: ArrayLike, grad: ArrayLike) -> Array:
 
 
 @jax.jit
-def update_stats(likelihood: ArrayLike, weights: ArrayLike):
+def update_stats(likelihood: ArrayLike, weights: ArrayLike, counts: ArrayLike):
     #TODO: other stats will go in here
     model = jnp.sum(likelihood*weights, axis=1)
-    loss = -jnp.mean(jnp.log(model)) 
+    loss = -jnp.sum(counts*jnp.log(model)) 
     return loss
 
 def multiplicative_gradient(
@@ -56,7 +55,8 @@ def multiplicative_gradient(
     tol: Optional[float] = 1e-8,
     max_iterations: Optional[float] = 100000,
     verbose: Optional[bool]=False,
-    counts: Optional[Union[ArrayLike, None]]=None
+    counts: Optional[Union[ArrayLike, None]]=None,
+    info_freq: Optional[int] = 100
 ):
     """
     TODO: change docs for counts
@@ -108,36 +108,37 @@ def multiplicative_gradient(
     info["losses"] = []
     info["weights"] = []
     info["weights_idx"] = []
-
+    info["gap"] = []
+    
     for k in range(max_iterations):
 
         # Update weights
         grad = grad_log_prob(weights, counts, likelihood)   
         weights = update_weights(weights, grad)
 
+
+        # Check stopping criterion: this `gap` is an upper bound on our loss compared to optimal weights
+        gap = jnp.max(grad) - 1
+
         # Update info on optimizatoin
-        if k % 100 == 0:
-            print("NO COUNTS IN LOSS YET")
+        if k % info_freq == 0:
             loss = update_stats(likelihood, weights)
             print(loss)
             info["losses"].append(loss)
             info["weights"].append(weights)
             info["weights_idx"].append(k)
-
-        # Check stopping criterion: this `gap` is an upper bound on our loss compared to optimal weights
-        gap = jnp.max(grad) - 1
-        if verbose:
-            if k % 100 == 0: 
+            info["gap"].append(gap)
+            if verbose:
                 print(f"Number of iterations:{k}")
                 print(f"Gap: {gap}") 
         if gap < tol:
-            print(f"Number of iterations: {k}")
-            print("exiting!")
+            print(f"exiting at {k} iterations")
             break
 
-    info["weights"] = jnp.stack(info["weights"])
     info["losses"] = jnp.stack(info["losses"])
+    info["weights"] = jnp.stack(info["weights"])
     info["weights_idx"] = jnp.array(info["weights_idx"])
+    info["gap"] = jnp.array(info["gap"])
 
     return weights, info
 
