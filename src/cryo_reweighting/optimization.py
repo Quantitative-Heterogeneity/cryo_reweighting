@@ -1,6 +1,6 @@
 import jax
 import jax.numpy as jnp
-from cryo_reweighting.torch.utils import normalize_weights
+from cryo_reweighting.utils import normalize_weights
 from jax import Array
 from jax.typing import ArrayLike
 import jax
