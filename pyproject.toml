@@ -13,7 +13,6 @@ name = "cryo_reweighting"
 version = "0.0.1"
 dependencies = [
     "numpy",
-    "torch",
     "jax",
     "numpyro",
 ]
